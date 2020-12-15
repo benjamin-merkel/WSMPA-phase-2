@@ -119,7 +119,7 @@ box()
 dev.off()
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# create polygon for pseudo abscences 
+# create polygon for pseudo absences 
 
 grat.50S             <- grat.5[grat.5$direction=="S" & grat.5$degrees==50,][,1]
 grat.50S             <- rbind(grat.50S, grat.50S[1,])
@@ -133,18 +133,19 @@ values(background_raster) <- 1:ncell(background_raster)
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # load environmental covariates
 
-setwd(maud_directory)
-env <- readRDS("data/Circumpolar environmental covariate raster stack.rds")
+# Initial selection of relevant covariates
+# World ocean atlas temperature (surface and 200m depth): WOA_temp_0, WOA_temp_200
+# World ocean atlas salinity (surface and 200m depth): WOA_sal_0, WOA_sal_200
+# World ocean atlas silicate and nitrate (surface): WOA_si_0, WOA_ni_0
+# World ocean atlas dissolved oxygen concentration (surface and 200m depth): WOA_ox_0, WOA_ox_200
+# Sea ice metrics (length of the sea ice season, timing of sea ice retreat, summer sea ice concentration): NSIDC_ice_duration, NSIDC_ice_retreat, NSIDC_ice_conc
+# Summer bloom duration (bd), initiation timing (BI), timing of peak concentration (bt) and average Chl a concentration during the bloom (bm) derived from OC-CCI: OCCCI_bd, OCCCI_bi, OCCCI_bt, OCCCI_bm
+# Bathymetry and its derivative distance to to the continental shelf (defined as 1000 m depth): bath, dis_1000
+# Mixed layer depth from Pellichero et al. 2019: Pellichero_ml_depth
 
-# set initial selection of relevant covariates
-env.init.selected <- subset(env, c("WOA_temp_0","WOA_temp_200",
-                              "WOA_sal_0","WOA_sal_200",
-                              "NSIDC_ice_duration",'NSIDC_ice_retreat',"NSIDC_ice_conc",
-                              "OCCCI_bd","OCCCI_bi","OCCCI_bt","OCCCI_bm",
-                              "WOA_si_0","WOA_ni_0",
-                              "WOA_ox_0","WOA_ox_200",
-                              "bath","dis_1000",
-                              "Pellichero_ml_depth"))
+setwd(maud_directory)
+env.init.selected <- stack("data/WSMPA P2 Initial environmental covariate raster stack.tif")
+
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # define species
@@ -188,31 +189,11 @@ env.selected <- env.init.selected[[vif2.select@results$Variables]]
 # load response data
 
 setwd(maud_directory)
-data <- as_Spatial(readRDS(paste0("data/",species,"_response_data.rds")))
-data <- data[!is.na(data$year),]
-data <- data[!is.na(data$month),]
-data <- data[!is.na(data$presence_absence),]
-data <- data[!is.na(data$doy),]
-
-# remove data outside the model domain and time period considered
-data <- data[data$doy >= 358 | data$doy <=98,] # one week before 1 January - one week after 30 March
-data <- data[data$year > 1970,]
-data <- as_Spatial(st_intersection(st_as_sf(data), model.domain))
+data <- as_Spatial(readRDS(paste0("data/WSMPA P2_",species,"_response data.rds")))
 
 # extract environmental covariates for each observation and remove locations with NA values
 data <- cbind(data, extract(env.selected, data))
 data <- data[complete.cases(data.frame(data[,names(env.selected)])),]
-
-# thin out presence and absence points by removing spatial duplicates at the resolution of the covariates (i.e. background_raster)
-presence               <- data[data$presence_absence %in% 1,]
-presence$background.bin<- extract(background_raster, presence)
-presence2              <- presence[!duplicated(presence$background.bin),]
-absence                <- data[data$presence_absence %in% 0,]
-absence$background.bin <- extract(background_raster, absence)
-absence                <- absence[!absence$background.bin %in% unique(presence$background.bin),]
-absence2               <- absence[!duplicated(absence$background.bin),]
-
-data <- rbind(presence2, absence2)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # calculate pseudo-absences using one class support vector machines (OSCVM)
