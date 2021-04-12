@@ -34,6 +34,7 @@ grat.10     <- st_read("map data/ne_50m_graticules_10.shp")
 grat.5      <- st_read("map data/ne_50m_graticules_5.shp")
 land        <- st_read("map data/ne_10m_land.shp")
 ice_shelf   <- st_read("map data/Ice_shelf.shp")
+ice_shelf   <- st_buffer(ice_shelf,dist = 0)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # WSMPAP2 custom extents 
@@ -50,6 +51,13 @@ st_crs(wsmpap2.box) <- lonlat.proj
 wsmpap2.box <- st_difference(wsmpap2.box,land)
 wsmpap2.box <- nngeo::st_remove_holes(wsmpap2.box)
 
+wsmpap2.border <- st_cast(wsmpap2.box, "LINESTRING")
+wsmpap2.border <- st_transform(wsmpap2.border, st_crs(ice_shelf))
+wsmpap2.border <- st_difference(wsmpap2.border, ice_shelf)
+wsmpap2.border <- st_cast(wsmpap2.border, "LINESTRING")
+wsmpap2.border <- wsmpap2.border[st_length(wsmpap2.border) == max(st_length(wsmpap2.border)),]
+
+
 pts = matrix(c(-10  ,seq(-10,40,0.1),40 ,-10,
                -80,rep(-50,501) ,-80,-80),
              ncol=2, byrow=F)
@@ -58,25 +66,38 @@ st_crs(wider.wsmpap2) <- lonlat.proj
 wider.wsmpap2 <- st_difference(wider.wsmpap2,land)
 wider.wsmpap2 <- nngeo::st_remove_holes(wider.wsmpap2)
 
+wider.wsmpap2.border <- st_cast(wider.wsmpap2, "POLYGON")
+wider.wsmpap2.border <- st_cast(wider.wsmpap2.border[st_area(wider.wsmpap2.border) == max(st_area(wider.wsmpap2.border)),], "LINESTRING")
+wider.wsmpap2.border <- st_transform(wider.wsmpap2.border, st_crs(ice_shelf))
+wider.wsmpap2.border <- st_difference(wider.wsmpap2.border, ice_shelf)
+wider.wsmpap2.border <- st_cast(wider.wsmpap2.border, "LINESTRING")
+wider.wsmpap2.border <- wider.wsmpap2.border[st_length(wider.wsmpap2.border) == max(st_length(wider.wsmpap2.border)),]
+
+
 pts = matrix(c(-90  ,seq(-90,90,0.1),90 ,-90,
                -89,rep(-50,1801) ,-89,-89),
              ncol=2, byrow=F)
 ext90E90W50S = st_as_sf(spPolygons((pts)))
 st_crs(ext90E90W50S) <- lonlat.proj
-ext90E90W50S <- st_difference(ext90E90W50S,land)
-ext90E90W50S <- nngeo::st_remove_holes(ext90E90W50S)
+# ext90E90W50S <- st_difference(ext90E90W50S,land)
+# ext90E90W50S <- nngeo::st_remove_holes(ext90E90W50S)
+
+ext90E90W50S.border <- st_cast(ext90E90W50S, "LINESTRING")
+
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # reproject 
 
 wsmpap2.box   <- st_transform(wsmpap2.box,south_pole_equal_area.proj)
+wsmpap2.border <- st_transform(wsmpap2.border,south_pole_equal_area.proj)
 wider.wsmpap2 <- st_transform(wider.wsmpap2,south_pole_equal_area.proj)
+wider.wsmpap2.border <- st_transform(wider.wsmpap2.border,south_pole_equal_area.proj)
 ext90E90W50S  <- st_transform(ext90E90W50S,south_pole_equal_area.proj)
+ext90E90W50S.border  <- st_transform(ext90E90W50S.border,south_pole_equal_area.proj)
 land50        <- st_transform(st_crop(land, extent(-180,180,-90,-50)),south_pole_equal_area.proj)
 land          <- st_transform(land,south_pole_equal_area.proj)
 
 ice_shelf   <- st_transform(ice_shelf,south_pole_equal_area.proj)
-ice_shelf   <- st_buffer(ice_shelf,dist = 0)
 grat.30     <- st_transform(grat.30,south_pole_equal_area.proj)
 grat.10     <- st_transform(st_crop(grat.10, extent(-180,180,-85,0)),south_pole_equal_area.proj)
 grat.5      <- st_transform(grat.5, south_pole_equal_area.proj)
@@ -89,16 +110,16 @@ ratio <- (extent(ext90E90W50S)[2]-extent(ext90E90W50S)[1])/
 setwd(maud_directory)
 png("figures/model domains.png", res = 800, width=20*ratio, height = 20, units="cm")
 par(mar=c(1,1,1,1))
-plot(st_geometry(ext90E90W50S),border="transparent")
-plot(st_geometry(ext90E90W50S),add=T,border="transparent",col=brewer.pal(3,"Set3")[1])
+plot(st_geometry(ext90E90W50S),border="transparent",col=brewer.pal(3,"Set3")[1])
+plot(st_geometry(ext90E90W50S.border),add=T,border="transparent",col=brewer.pal(3,"Set3")[1])
 plot(st_geometry(wider.wsmpap2),add=T,border="transparent",col=brewer.pal(3,"Set3")[2])
 plot(st_geometry(wsmpap2.box),add=T,border="transparent",col=brewer.pal(3,"Set3")[3])
+plot(st_geometry(wider.wsmpap2),lty=2,add=T,lwd=1.5)
 plot(st_geometry(ice_shelf),add=T,border=grey(0.9),col=grey(0.9),lwd=0.1)
 plot(st_geometry(land),add=T,border=grey(0.4),col=grey(0.4),lwd=.1)
 plot(st_geometry(grat.10),lwd=0.5,col=grey(0.2),add=T)
 # plot(st_geometry(ext90E90W50S),lty=2,add=T)
-plot(st_geometry(wider.wsmpap2),lty=2,add=T,lwd=1.5)
-plot(st_geometry(wsmpap2.box),add=T,lwd=1.5)
+plot(st_geometry(wsmpap2.border),add=T,lwd=1.5)
 text(c(-4250,-3190, -2100, -1000),rep(-50,4), cex=0.7,las = 2,
        labels = c(expression(paste("50",degree,"S")), 
                   expression(paste("60",degree,"S")), 
@@ -144,8 +165,10 @@ values(background_raster) <- 1:ncell(background_raster)
 # Mixed layer depth from Pellichero et al. 2019: Pellichero_ml_depth
 
 setwd(maud_directory)
+env.init.selected.names <- names(readRDS("data/WSMPA P2 Initial environmental covariate raster stack.rds"))
 env.init.selected <- stack("data/WSMPA P2 Initial environmental covariate raster stack.tif")
-
+names(env.init.selected) <- env.init.selected.names
+# env.init.selected <- readRDS("data/WSMPA P2 Initial environmental covariate raster stack.rds")
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # define species
@@ -157,9 +180,11 @@ species     <- "E.crystallorophias"
 
 if(species == "E.superba") {
   model.domain <- wider.wsmpap2
+  model.domain.border <- wider.wsmpap2.border
   range <- "wider WSMPAP2"
 } else {
   model.domain <- ext90E90W50S
+  model.domain.border <- ext90E90W50S.border
   range <- "90W-90E"
 }
 
@@ -189,17 +214,20 @@ env.selected <- env.init.selected[[vif2.select@results$Variables]]
 # load response data
 
 setwd(maud_directory)
-data <- as_Spatial(readRDS(paste0("data/WSMPA P2_",species,"_response data.rds")))
+data <- readRDS(paste0("data/WSMPA P2_",species,"_response data.rds"))
 
 # extract environmental covariates for each observation and remove locations with NA values
 data <- cbind(data, extract(env.selected, data))
 data <- data[complete.cases(data.frame(data[,names(env.selected)])),]
 
+presence              <- data[data$presence_absence %in% 1,]
+absence               <- data[data$presence_absence %in% 0,]
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # calculate pseudo-absences using one class support vector machines (OSCVM)
 
 # calculate how many pseudo-absence locations are needed
-pseudo.size <- nrow(presence2)-nrow(absence2)
+pseudo.size <- nrow(presence)-nrow(absence)
 if(pseudo.size<0) pseudo.size <- 0
 
 if(pseudo.size>0){
@@ -207,7 +235,7 @@ if(pseudo.size>0){
   coordinates(pseudo.start)     <- cbind(pseudo.start$x,pseudo.start$y)
   proj4string(pseudo.start)     <- projection(background_raster)
   pseudo.start                  <- SpatialPointsDataFrame(pseudo.start, data.frame(background.bin=extract(background_raster, pseudo.start)))
-  pseudo.start                  <- cbind(pseudo.start,extract(env, pseudo.start))
+  pseudo.start                  <- cbind(pseudo.start,extract(env.init.selected, pseudo.start))
   pseudo.start                  <- pseudo.start[!duplicated(pseudo.start$background.bin),]
   pseudo.start$presence_absence <- rep(NA,nrow(pseudo.start))
   
@@ -442,6 +470,7 @@ saveRDS(vi3              , paste0("data/",species,"_",range,"_GBM_estimated vari
 # load rasters
 gbm_ras_mean <- raster(paste0("data/",species,"_",range,"_GBM_MEAN_100_ensemble_with OCSVM.tif"))
 gbm_ras_sd   <- raster(paste0("data/",species,"_",range,"_GBM_SD_100_ensemble_with OCSVM.tif"))
+dat.used     <- readRDS(paste0("data/",species,"_",range,"_response_data.rds"))
 
 
 # plot available data distribution
@@ -451,12 +480,12 @@ setwd(maud_directory)
 png(paste0("figures/",species ," available data.png"), res = 800, 
     width=20*ratio, height = 20, units="cm")
 par(mar=c(1,1,1,1))
-plot(st_geometry(model.domain),lty=2)
+plot(st_geometry(model.domain),lty=2,lwd=1,border="transparent")
+plot(st_geometry(model.domain.border),lty=2,add=T,lwd=2)
 plot(st_geometry(ice_shelf),add=T,border="grey",col="grey",lwd=0.1)
 plot(st_geometry(land),add=T,border=grey(0.4),col=grey(0.4),lwd=.1)
 plot(st_geometry(grat.10),lwd=0.5,col=grey(0.8),add=T)
-plot(st_geometry(model.domain),lty=2,add=T,lwd=1.5)
-plot(st_geometry(wsmpap2.box),add=T,lwd=1.5)
+plot(st_geometry(wsmpap2.border),add=T,lwd=1.5)
 if(pseudo.size>0) {for(i in 1:10) plot(dat.used[[i]],add=T,pch=21,bg=5,col="white",lwd=0.5,cex=0.5)}
 plot(data,add=T,pch=21,bg=4,col="white",lwd=0.5)
 plot(data[data$presence_absence==1,],add=T,pch=21,bg=2,col="white",lwd=0.5)
@@ -488,48 +517,49 @@ dev.off()
 
 
 # plot mean and sd of model output over model domain
-plot.sd=F
+plot.sd=T
+for(plot.sd in c(T, F)){
 
-if(plot.sd==T) layer1 <- gbm_ras_sd else  layer1 <- gbm_ras_mean 
-if(plot.sd==T) brks = seq(0,ceiling(max(values(gbm_ras_sd),na.rm=T)),ceiling(max(values(gbm_ras_sd),na.rm=T))/10) else brks = seq(0,1000,100) 
-if(plot.sd==T) legend.axis.labels = c("less","more") else legend.axis.labels = c("low","high")
-if(plot.sd==T) legend.labels = "uncertainty" else legend.labels = "probability"
-vid <- brewer.pal(11,"Spectral")
-cols_used <- colorRampPalette(vid[c(11,6,1)])(10)
-if(plot.sd==T) cols_used <- plasma(10)
-ratio <- (extent(wider.wsmpap2)[2]-extent(wider.wsmpap2)[1])/
-  (extent(wider.wsmpap2)[4]-extent(wider.wsmpap2)[3])
-setwd(maud_directory)
-if(plot.sd==F) png(paste0("figures/",species ," model prediction mean map.png"), res = 800,   width=20*ratio, height = 20, units="cm")
-if(plot.sd==T)  png(paste0("figures/",species ," model prediction SD map.png"), res = 800,   width=20*ratio, height = 20, units="cm")
-par(mar=c(1,1,1,1))
-plot(st_geometry(wider.wsmpap2),lty=2)  
-plot(mask(layer1, wider.wsmpap2),  col = cols_used, breaks=brks, add=T, legend =F)
-plot(st_geometry(ice_shelf),add=T,border="grey",col="grey",lwd=0.1)
-plot(st_geometry(land),add=T,border=grey(0.4),col=grey(0.4),lwd=.1)
-plot(st_geometry(grat.10),lwd=0.5,col=grey(0.8),add=T)
-plot(st_geometry(wider.wsmpap2),lty=2,add=T,lwd=1.5)
-plot(st_geometry(wsmpap2.box),add=T,lwd=1.5)
-axis(2,at = c(4280, 3160, 2020), tick = F, line = -1, cex.axis=0.7,
-     labels = c(expression(paste("50",degree,"S")), 
-                expression(paste("60",degree,"S")), 
-                expression(paste("70",degree,"S"))))
-axis(3,at = c(-800, 0, 800, 1650, 2600),  tick = F, line = -1, cex.axis=0.7,
-     labels = c(expression(paste("10",degree,"W")), 
-                expression(paste("0",degree,"")), 
-                expression(paste("10",degree,"E")),
-                expression(paste("20",degree,"E")),
-                expression(paste("30",degree,"E"))))
-box()
-plot(layer1,legend.only = T, col=cols_used, breaks=brks, 
-     axis.args=list(at=c(min(brks)+0.04*max(brks),max(brks)-0.04*max(brks)), #brks,
-                    labels=legend.axis.labels,#brks/10 ,
-                    cex.axis=1,tick=F,line=-0.2),
-     legend.args=list(text=legend.labels, side=4, font=2, line=2.5, cex=1),
-     legend.width=0.2, legend.shrink=0.75,
-     smallplot=c(0.85,0.87, 0.07,0.32))
-dev.off()
-
+  if(plot.sd==T) layer1 <- gbm_ras_sd else  layer1 <- gbm_ras_mean 
+  if(plot.sd==T) brks = seq(0,ceiling(max(values(gbm_ras_sd),na.rm=T)),ceiling(max(values(gbm_ras_sd),na.rm=T))/10) else brks = seq(0,1000,100) 
+  if(plot.sd==T) legend.axis.labels = c("less","more") else legend.axis.labels = c("low","high")
+  if(plot.sd==T) legend.labels = "uncertainty" else legend.labels = "probability"
+  vid <- brewer.pal(11,"Spectral")
+  cols_used <- colorRampPalette(vid[c(11,6,1)])(10)
+  if(plot.sd==T) cols_used <- plasma(10)
+  ratio <- (extent(wider.wsmpap2)[2]-extent(wider.wsmpap2)[1])/
+    (extent(wider.wsmpap2)[4]-extent(wider.wsmpap2)[3])
+  setwd(maud_directory)
+  if(plot.sd==F) png(paste0("figures/",species ," model prediction mean map.png"), res = 800,   width=20*ratio, height = 20, units="cm")
+  if(plot.sd==T)  png(paste0("figures/",species ," model prediction SD map.png"), res = 800,   width=20*ratio, height = 20, units="cm")
+  par(mar=c(1,1,1,1))
+  plot(st_geometry(wider.wsmpap2),lty=2)  
+  plot(mask(layer1, wider.wsmpap2),  col = cols_used, breaks=brks, add=T, legend =F)
+  plot(st_geometry(ice_shelf),add=T,border="grey",col="grey",lwd=0.1)
+  plot(st_geometry(land),add=T,border=grey(0.4),col=grey(0.4),lwd=.1)
+  plot(st_geometry(grat.10),lwd=0.5,col=grey(0.8),add=T)
+  plot(st_geometry(wider.wsmpap2.border),lty=2,add=T,lwd=1.5)
+  plot(st_geometry(wsmpap2.border),add=T,lwd=1.5)
+  axis(2,at = c(4280, 3160, 2020), tick = F, line = -1, cex.axis=0.7,
+       labels = c(expression(paste("50",degree,"S")), 
+                  expression(paste("60",degree,"S")), 
+                  expression(paste("70",degree,"S"))))
+  axis(3,at = c(-800, 0, 800, 1650, 2600),  tick = F, line = -1, cex.axis=0.7,
+       labels = c(expression(paste("10",degree,"W")), 
+                  expression(paste("0",degree,"")), 
+                  expression(paste("10",degree,"E")),
+                  expression(paste("20",degree,"E")),
+                  expression(paste("30",degree,"E"))))
+  box()
+  plot(layer1,legend.only = T, col=cols_used, breaks=brks, 
+       axis.args=list(at=c(min(brks)+0.04*max(brks),max(brks)-0.04*max(brks)), #brks,
+                      labels=legend.axis.labels,#brks/10 ,
+                      cex.axis=1,tick=F,line=-0.2),
+       legend.args=list(text=legend.labels, side=4, font=2, line=2.5, cex=1),
+       legend.width=0.2, legend.shrink=0.75,
+       smallplot=c(0.85,0.87, 0.07,0.32))
+  dev.off()
+}
 
 
 # plot marginal response curves for each covariate
